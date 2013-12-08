@@ -413,31 +413,9 @@ def deploy_windows(host, port=445, timeout=900, username='Administrator',
         # Shell out to smbclient to create C:\salt\conf\pki\minion
         win_cmd('smbclient {0}/c$ -c "mkdir salt; mkdir salt\\conf; mkdir salt\\conf\\pki; mkdir salt\\conf\\pki\\minion; exit;"'.format(creds))
         # Shell out to smbclient to copy over minion keys
-        ## minion_pub, minion_pem, minion_conf
+        ## minion_pub, minion_pem
         kwargs = {'hostname': host,
                   'creds': creds}
-
-        if minion_conf:
-            if not isinstance(minion_conf, dict):
-                # Let's not just fail regarding this change, specially
-                # since we can handle it
-                raise DeprecationWarning(
-                    '`saltcloud.utils.deploy_windows` now only accepts '
-                    'dictionaries for its `minion_conf` parameter. '
-                    'Loading YAML...'
-                )
-            minion_grains = minion_conf.pop('grains', {})
-            if minion_grains:
-                smb_file(
-                    'salt\\conf\\grains',
-                    salt_config_to_yaml(minion_grains, line_break='\r\n'),
-                    kwargs
-                )
-            smb_file(
-                'salt\\conf\\minion',
-                salt_config_to_yaml(minion_conf, line_break='\r\n'),
-                kwargs
-            )
 
         if minion_pub:
             smb_file('salt\\conf\\pki\\minion\\minion.pub', minion_pub, kwargs)
@@ -459,6 +437,28 @@ def deploy_windows(host, port=445, timeout=900, username='Administrator',
         win_cmd('winexe {0} "c:\\salttemp\\{1} /S /master={2} /minion-name={3}"'.format(
             creds, installer, master, name
         ))
+        # Copy minion_conf after installation 
+        if minion_conf:
+            if not isinstance(minion_conf, dict):
+                # Let's not just fail regarding this change, specially
+                # since we can handle it
+                raise DeprecationWarning(
+                    '`saltcloud.utils.deploy_windows` now only accepts '
+                    'dictionaries for its `minion_conf` parameter. '
+                    'Loading YAML...'
+                )
+            minion_grains = minion_conf.pop('grains', {})
+            if minion_grains:
+                smb_file(
+                    'salt\\conf\\grains',
+                    salt_config_to_yaml(minion_grains, line_break='\r\n'),
+                    kwargs
+                )
+            smb_file(
+                'salt\\conf\\minion',
+                salt_config_to_yaml(minion_conf, line_break='\r\n'),
+                kwargs
+            )
         # Shell out to smbclient to deltree C:\salttmp\
         ## Unless keep_tmp is True
         if not keep_tmp:
